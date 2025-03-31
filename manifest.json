@@ -1,0 +1,11 @@
+{
+  "domain": "medication_manager",
+  "name": "Medication Manager",
+  "documentation": "https://github.com/brayStorm/medication_manager",
+  "dependencies": [],
+  "codeowners": ["@brayStorm"],
+  "requirements": [],
+  "version": "0.1.0",
+  "config_flow": true,
+  "iot_class": "local_push"
+}

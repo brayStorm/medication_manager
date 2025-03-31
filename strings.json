@@ -1,0 +1,68 @@
+{
+  "config": {
+    "title": "Medication Manager",
+    "step": {
+      "user": {
+        "title": "Setup Method",
+        "description": "Choose what you would like to set up",
+        "data": {
+          "setup_type": "Setup Type"
+        }
+      },
+      "add_person": {
+        "title": "Add Person",
+        "description": "Enter a name for the person who takes medication",
+        "data": {
+          "name": "Person Name"
+        }
+      },
+      "medication_setup": {
+        "title": "Add Medication",
+        "description": "Enter medication details",
+        "data": {
+          "name": "Medication Name",
+          "person": "Person",
+          "dosage": "Dosage (pills per dose)",
+          "inventory": "Current inventory (pills)",
+          "dose_time": "Dose time (HH:MM:SS)",
+          "doses_per_day": "Doses per day",
+          "refills_remaining": "Refills remaining",
+          "low_inventory_threshold": "Low inventory threshold",
+          "doctor_reminder_threshold": "Doctor appointment threshold",
+          "nfc_scan_now": "Scan NFC tag after setup"
+        }
+      },
+      "scan_nfc": {
+        "title": "Scan NFC Tag",
+        "description": "Scan an NFC tag with your device",
+        "data": {
+          "tag_id": "Scanned Tag ID (optional)"
+        }
+      }
+    },
+    "error": {
+      "unknown": "Unknown error occurred"
+    },
+    "abort": {
+      "already_configured": "Already configured",
+      "no_medication_data": "No medication data found"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Medication Options",
+        "description": "Update medication details",
+        "data": {
+          "inventory": "Current inventory",
+          "refills_remaining": "Refills remaining",
+          "low_inventory_threshold": "Low inventory threshold",
+          "doctor_reminder_threshold": "Doctor appointment threshold"
+        }
+      }
+    },
+    "abort": {
+      "no_medications": "No medications configured"
+    }
+  }
+}
