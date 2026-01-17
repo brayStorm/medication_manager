@@ -48,6 +48,7 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
         self._people: list[dict[str, str]] = []
         self._last_added_person: str | None = None
         self._cancel_event: asyncio.Event | None = None
+        self._scanned_tag_id: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -177,17 +178,65 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_scan_nfc(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the NFC scanning step with actual tag waiting."""
-        errors: dict[str, str] = {}
-
+        """Handle the NFC scanning step - show progress while waiting for tag."""
         LOGGER.debug("In NFC scanning step, user_input: %s", user_input)
 
         if not self._medication_data:
             LOGGER.error("No medication data available for NFC scanning")
             return self.async_abort(reason="no_medication_data")
 
+        # Initialize cancel event if not exists
+        if self._cancel_event is None:
+            self._cancel_event = asyncio.Event()
+
+        # Show progress while waiting for tag scan
+        return self.async_show_progress(
+            step_id="scan_nfc",
+            progress_action="wait_for_tag",
+            description_placeholders={
+                "medication_name": self._medication_data.get(CONF_NAME, "medication"),
+            },
+        )
+
+    async def async_step_wait_for_tag(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Background task that waits for NFC tag scan."""
+        LOGGER.debug("Starting wait_for_tag background task")
+
+        try:
+            from homeassistant.components.tag import async_wait_for_tag_scan
+
+            # Wait for tag with a reasonable timeout
+            self._cancel_event = asyncio.Event()
+            result = await asyncio.wait_for(
+                async_wait_for_tag_scan(self.hass, self._cancel_event),
+                timeout=60.0,  # 60 second timeout
+            )
+
+            if result is not None:
+                self._scanned_tag_id = result["tag_id"]
+                LOGGER.debug("Tag scanned: %s", self._scanned_tag_id)
+            else:
+                self._scanned_tag_id = None
+
+        except asyncio.TimeoutError:
+            LOGGER.debug("Tag scan timed out")
+            self._scanned_tag_id = None
+        except ImportError:
+            LOGGER.warning("async_wait_for_tag_scan not available")
+            self._scanned_tag_id = None
+
+        return self.async_show_progress_done(next_step_id="scan_nfc_done")
+
+    async def async_step_scan_nfc_done(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle completion of NFC scanning - show result or allow manual entry."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            # User submitted the form (either with scanned tag or manual entry)
+            # User submitted the form
             med_data = self._medication_data.copy()
 
             # Add the tag ID if provided
@@ -216,38 +265,12 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                 },
             )
 
-        # Try to use the async_wait_for_tag_scan helper if available
-        scanned_tag_id = ""
-        try:
-            from homeassistant.components.tag import async_wait_for_tag_scan
+        # Get scanned tag ID if available
+        scanned_tag_id = getattr(self, "_scanned_tag_id", "") or ""
 
-            # Create a cancel event with a timeout
-            self._cancel_event = asyncio.Event()
-
-            # Wait for tag scan with a short timeout for the form display
-            # The actual waiting happens in the background
-            LOGGER.debug("Waiting for NFC tag scan...")
-
-            # Use asyncio.wait_for with a very short timeout just to check
-            # if a tag was recently scanned
-            try:
-                result = await asyncio.wait_for(
-                    async_wait_for_tag_scan(self.hass, self._cancel_event),
-                    timeout=0.1,  # Very short - just check if already scanned
-                )
-                if result is not None:
-                    scanned_tag_id = result["tag_id"]
-                    LOGGER.debug("Tag scanned during wait: %s", scanned_tag_id)
-            except asyncio.TimeoutError:
-                # No tag scanned yet, that's fine
-                pass
-
-        except ImportError:
-            LOGGER.debug("async_wait_for_tag_scan not available")
-
-        # Show the form for manual entry or confirmation
+        # Show form with scanned tag or empty for manual entry
         return self.async_show_form(
-            step_id="scan_nfc",
+            step_id="scan_nfc_done",
             data_schema=vol.Schema(
                 {
                     vol.Optional("tag_id", default=scanned_tag_id): str,
@@ -255,10 +278,11 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
             description_placeholders={
-                "message": (
-                    "Scan an NFC tag with your device or enter the tag ID manually. "
-                    "Leave blank to skip NFC linking."
-                )
+                "scanned_status": (
+                    f"Tag scanned: {scanned_tag_id}"
+                    if scanned_tag_id
+                    else "No tag scanned. You can enter a tag ID manually or leave blank."
+                ),
             },
         )
 

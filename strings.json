@@ -4,9 +4,9 @@
     "step": {
       "user": {
         "title": "Setup Method",
-        "description": "Choose what you would like to set up",
+        "description": "Choose how you would like to set up your medication",
         "data": {
-          "setup_type": "Setup Type"
+          "setup_type": "How would you like to proceed?"
         }
       },
       "add_person": {
@@ -34,11 +34,18 @@
       },
       "scan_nfc": {
         "title": "Scan NFC Tag",
-        "description": "Scan an NFC tag with your device or enter the tag ID manually. Leave blank to skip NFC linking.",
+        "description": "Waiting for NFC tag scan for {medication_name}... Scan a tag with your phone or NFC reader now."
+      },
+      "scan_nfc_done": {
+        "title": "NFC Tag Assignment",
+        "description": "{scanned_status}",
         "data": {
-          "tag_id": "Tag ID (optional)"
+          "tag_id": "Tag ID"
         }
       }
+    },
+    "progress": {
+      "wait_for_tag": "Waiting for NFC tag scan... Scan a tag now or wait for timeout."
     },
     "error": {
       "unknown": "Unknown error occurred"
