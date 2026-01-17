@@ -34,9 +34,9 @@
       },
       "scan_nfc": {
         "title": "Scan NFC Tag",
-        "description": "Scan an NFC tag with your device",
+        "description": "Scan an NFC tag with your device or enter the tag ID manually. Leave blank to skip NFC linking.",
         "data": {
-          "tag_id": "Scanned Tag ID (optional)"
+          "tag_id": "Tag ID (optional)"
         }
       }
     },
@@ -63,6 +63,50 @@
     },
     "abort": {
       "no_medications": "No medications configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "medication_status": {
+        "name": "Status",
+        "state": {
+          "not_taken": "Not taken",
+          "partially_taken": "Partially taken",
+          "taken": "Taken"
+        }
+      },
+      "medication_inventory": {
+        "name": "Inventory"
+      },
+      "next_dose_time": {
+        "name": "Next dose"
+      }
+    }
+  },
+  "services": {
+    "record_dose": {
+      "name": "Record dose",
+      "description": "Record that a dose of medication was taken.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication (slugified name)."
+        }
+      }
+    },
+    "update_inventory": {
+      "name": "Update inventory",
+      "description": "Update the inventory count for a medication.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication (slugified name)."
+        },
+        "inventory": {
+          "name": "Inventory count",
+          "description": "The new inventory count (number of doses)."
+        }
+      }
     }
   }
 }

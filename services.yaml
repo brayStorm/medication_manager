@@ -1,0 +1,33 @@
+record_dose:
+  name: Record dose
+  description: Record that a dose of medication was taken.
+  fields:
+    medication_id:
+      name: Medication ID
+      description: The ID of the medication (slugified name).
+      required: true
+      example: "aspirin"
+      selector:
+        text:
+
+update_inventory:
+  name: Update inventory
+  description: Update the inventory count for a medication.
+  fields:
+    medication_id:
+      name: Medication ID
+      description: The ID of the medication (slugified name).
+      required: true
+      example: "aspirin"
+      selector:
+        text:
+    inventory:
+      name: Inventory count
+      description: The new inventory count (number of doses).
+      required: true
+      example: 30
+      selector:
+        number:
+          min: 0
+          max: 1000
+          mode: box

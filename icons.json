@@ -1,0 +1,24 @@
+{
+  "entity": {
+    "sensor": {
+      "medication_status": {
+        "default": "mdi:pill",
+        "state": {
+          "not_taken": "mdi:pill-off",
+          "partially_taken": "mdi:pill",
+          "taken": "mdi:check-circle"
+        }
+      },
+      "medication_inventory": {
+        "default": "mdi:counter"
+      },
+      "next_dose_time": {
+        "default": "mdi:clock-outline"
+      }
+    }
+  },
+  "services": {
+    "record_dose": "mdi:pill",
+    "update_inventory": "mdi:counter"
+  }
+}
