@@ -211,19 +211,23 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             from homeassistant.components.tag import async_wait_for_tag_scan
 
+            # Call the coroutine directly - it handles cancellation internally
             result = await async_wait_for_tag_scan(self.hass, self._cancel_event)
 
             if result is not None:
                 self._scanned_tag_id = result["tag_id"]
                 LOGGER.info("Tag scanned during config flow: %s", self._scanned_tag_id)
+            else:
+                LOGGER.debug("Tag scan returned None (cancelled)")
 
         except asyncio.CancelledError:
-            LOGGER.debug("Tag scan cancelled")
+            LOGGER.debug("Tag scan task cancelled")
             raise
         except ImportError:
             LOGGER.warning("async_wait_for_tag_scan not available in this HA version")
-        except Exception as err:
-            LOGGER.error("Error waiting for tag scan: %s", err)
+            # Fall through to allow manual entry
+        except Exception:
+            LOGGER.exception("Error waiting for tag scan")
 
     async def async_step_scan_nfc_done(
         self, user_input: dict[str, Any] | None = None
