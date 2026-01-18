@@ -175,27 +175,68 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_scan_nfc(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the NFC scanning step."""
-        errors: dict[str, str] = {}
-
-        LOGGER.debug("In NFC scanning step, user_input: %s", user_input)
+        """Handle the NFC scanning step - show progress while waiting."""
+        LOGGER.debug("In NFC scanning step")
 
         if not self._medication_data:
             LOGGER.error("No medication data available for NFC scanning")
             return self.async_abort(reason="no_medication_data")
 
+        # Start the scan task if not already running
+        if self._scan_task is None:
+            self._cancel_event = asyncio.Event()
+            self._scan_task = self.hass.async_create_task(
+                self._async_wait_for_tag_scan(),
+                "medication_manager_tag_scan",
+            )
+
+        # If task is still running, show progress
+        if not self._scan_task.done():
+            return self.async_show_progress(
+                step_id="scan_nfc",
+                progress_action="wait_for_tag",
+                progress_task=self._scan_task,
+                description_placeholders={
+                    "medication_name": self._medication_data.get(CONF_NAME, "medication"),
+                },
+            )
+
+        # Task completed - move to done step
+        return self.async_show_progress_done(next_step_id="scan_nfc_done")
+
+    async def _async_wait_for_tag_scan(self) -> None:
+        """Background task that waits for NFC tag scan."""
+        LOGGER.debug("Starting background tag scan listener")
+
+        try:
+            from homeassistant.components.tag import async_wait_for_tag_scan
+
+            result = await async_wait_for_tag_scan(self.hass, self._cancel_event)
+
+            if result is not None:
+                self._scanned_tag_id = result["tag_id"]
+                LOGGER.info("Tag scanned during config flow: %s", self._scanned_tag_id)
+
+        except asyncio.CancelledError:
+            LOGGER.debug("Tag scan cancelled")
+            raise
+        except ImportError:
+            LOGGER.warning("async_wait_for_tag_scan not available in this HA version")
+        except Exception as err:
+            LOGGER.error("Error waiting for tag scan: %s", err)
+
+    async def async_step_scan_nfc_done(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle completion of NFC scanning."""
+        LOGGER.debug("In scan_nfc_done step, user_input: %s", user_input)
+
         if user_input is not None:
-            # User submitted - could be after scanning or manual entry
+            # User submitted the form
             med_data = self._medication_data.copy()
 
-            # Cancel any running scan task
-            if self._scan_task and not self._scan_task.done():
-                if self._cancel_event:
-                    self._cancel_event.set()
-                self._scan_task.cancel()
-
-            # Use scanned tag if available, otherwise use manual entry
-            tag_id = user_input.get("tag_id") or self._scanned_tag_id
+            # Use the tag ID from form or scanned
+            tag_id = user_input.get("tag_id")
             if tag_id:
                 med_data[CONF_NFC_ID] = tag_id
                 LOGGER.debug("NFC tag ID added: %s", tag_id)
@@ -211,6 +252,10 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
             if person_name:
                 entry_title = f"{person_name}'s {entry_title}"
 
+            # Clean up
+            self._scan_task = None
+            self._cancel_event = None
+
             LOGGER.debug("Creating entry from NFC step with title: %s", entry_title)
             return self.async_create_entry(
                 title=entry_title,
@@ -220,54 +265,38 @@ class MedicationManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                 },
             )
 
-        # Start background tag scan if not already running
-        if self._scan_task is None or self._scan_task.done():
-            self._scanned_tag_id = None
-            self._cancel_event = asyncio.Event()
-            self._scan_task = self.hass.async_create_task(
-                self._async_wait_for_tag_scan()
-            )
-
-        # Check if a tag was scanned
+        # Show form with scanned tag ID pre-filled
         scanned_tag_id = self._scanned_tag_id or ""
 
         return self.async_show_form(
-            step_id="scan_nfc",
+            step_id="scan_nfc_done",
             data_schema=vol.Schema(
                 {
                     vol.Optional("tag_id", default=scanned_tag_id): str,
                 }
             ),
-            errors=errors,
             description_placeholders={
                 "medication_name": self._medication_data.get(CONF_NAME, "medication"),
+                "tag_status": (
+                    f"Tag detected: {scanned_tag_id}"
+                    if scanned_tag_id
+                    else "No tag was scanned. You can enter a tag ID manually or leave blank to skip."
+                ),
             },
         )
 
-    async def _async_wait_for_tag_scan(self) -> None:
-        """Background task that waits for NFC tag scan."""
-        LOGGER.debug("Starting background tag scan listener")
+    async def async_step_skip_nfc(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle skipping NFC scanning."""
+        # Cancel the scan task if running
+        if self._scan_task and not self._scan_task.done():
+            if self._cancel_event:
+                self._cancel_event.set()
+            self._scan_task.cancel()
 
-        try:
-            from homeassistant.components.tag import async_wait_for_tag_scan
-
-            result = await asyncio.wait_for(
-                async_wait_for_tag_scan(self.hass, self._cancel_event),
-                timeout=120.0,  # 2 minute timeout
-            )
-
-            if result is not None:
-                self._scanned_tag_id = result["tag_id"]
-                LOGGER.info("Tag scanned during config flow: %s", self._scanned_tag_id)
-
-        except asyncio.TimeoutError:
-            LOGGER.debug("Tag scan timed out")
-        except asyncio.CancelledError:
-            LOGGER.debug("Tag scan cancelled")
-        except ImportError:
-            LOGGER.warning("async_wait_for_tag_scan not available in this HA version")
-        except Exception as err:
-            LOGGER.error("Error waiting for tag scan: %s", err)
+        self._scanned_tag_id = None
+        return await self.async_step_scan_nfc_done()
 
     def _load_existing_people(self) -> None:
         """Load existing people from other config entries."""

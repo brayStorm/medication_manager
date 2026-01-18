@@ -34,11 +34,18 @@
       },
       "scan_nfc": {
         "title": "Scan NFC Tag",
-        "description": "Scan an NFC tag to link it to {medication_name}. The tag ID will appear automatically when scanned, or you can enter it manually. Leave blank to skip.",
+        "description": "Waiting for NFC tag scan for {medication_name}... Scan a tag with your phone or NFC reader now."
+      },
+      "scan_nfc_done": {
+        "title": "NFC Tag Result",
+        "description": "{tag_status}",
         "data": {
-          "tag_id": "Tag ID (scan a tag or enter manually)"
+          "tag_id": "Tag ID"
         }
       }
+    },
+    "progress": {
+      "wait_for_tag": "Waiting for NFC tag scan..."
     },
     "error": {
       "unknown": "Unknown error occurred"
